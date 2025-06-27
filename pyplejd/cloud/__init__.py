@@ -10,8 +10,8 @@ from ..errors import AuthenticationError, ConnectionError
 
 _LOGGER = logging.getLogger(__name__)
 
-API_APP_ID = "zHtVqXt8k4yFyk2QGmgp48D9xZr2G94xWYnF4dak"
-API_BASE_URL = "https://cloud.plejd.com"
+API_APP_ID = "vTQYBeBAXkdbH8x6WuqeP9Rs5M7qArr2KPPBXHjA"
+API_BASE_URL = "https://parse.stage.plejd.cloud"
 API_LOGIN_URL = "/parse/login"
 API_SITE_LIST_URL = "/parse/functions/getSiteList"
 API_SITE_DETAILS_URL = "/parse/functions/getSiteById"
