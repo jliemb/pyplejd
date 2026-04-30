@@ -161,11 +161,8 @@ class PlejdCloudSite:
 
         for deviceId, outputs in details.outputAddress.items():
             plejdDevice = details.find_plejdDevice(deviceId)
+            firstDevice = details.find_device(deviceId=deviceId)
             deviceAddress = details.deviceAddress.get(deviceId)
-
-            # Ignore grouped devices
-            if plejdDevice.isFellowshipFollower:
-                continue
 
             for output, address in outputs.items():
                 output = int(output)
@@ -178,13 +175,17 @@ class PlejdCloudSite:
 
                 room = details.find_room(device.roomId)
 
+                rxAddress = details.rxAddress.get(deviceId, {}).get(str(output), -1)
+
                 yield {
                     "address": address,
                     "deviceAddress": deviceAddress,
                     "device": device,
                     "plejdDevice": plejdDevice,
+                    "rxAddress": rxAddress,
                     "settings": settings,
                     "room": room,
+                    "first_device": firstDevice,
                 }
 
     @property
@@ -195,6 +196,7 @@ class PlejdCloudSite:
 
         for deviceId, inputs in details.inputAddress.items():
             plejdDevice = details.find_plejdDevice(deviceId)
+            firstDevice = details.find_device(deviceId=deviceId)
             deviceAddress = details.deviceAddress.get(deviceId)
 
             for input, address in inputs.items():
@@ -219,6 +221,8 @@ class PlejdCloudSite:
                     "settings": settings,
                     "room": room,
                     "motion": bool(motionSensor),
+                    "rxAddress": -1,
+                    "first_device": firstDevice,
                 }
 
     @property

@@ -10,8 +10,13 @@ Contributors not listed in git history - in no particular order:
 - [@bnordli](https://github.com/bnordli)
 - [@oyvindwe](https://github.com/oyvindwe)
 - [@NewsGuyTor](https://github.com/NewsGuyTor)
+- [@genesiscrew](https://github.com/genesiscrew)
+- [@MHultman](https://github.com/MHultman)
 
 ---
+
+**INFORMATION BELOW IS DEPRECATED**
+To be updated soon
 
 Much information below is taken from here: https://github.com/icanos/hassio-plejd/issues/163
 
@@ -114,7 +119,7 @@ I've given up on reliably decoding this for the time being...
 
 It also seems that holding the buttons for a longer time sends different commands...
 
-### Set cover position `AA 0110 0420 030807 01 PPPP` (WO)
+### Set cover position `AA 0110 0420 0308 0701 PPPP` (WO)
 
 Set cover at address `AA` to position `PPPP`.
 

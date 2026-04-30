@@ -1,11 +1,11 @@
 from __future__ import annotations
 import logging
 from datetime import timedelta
-from typing import TypedDict
 
 from bleak_retry_connector import close_stale_connections
 
-from .ble import PlejdMesh, PLEJD_SERVICE
+from .ble import PlejdMesh, PLEJD_SERVICE, LastData, LightLevel
+from .ble.debug import rec_log
 from .cloud import PlejdCloudSite
 
 from .errors import AuthenticationError, ConnectionError
@@ -44,16 +44,54 @@ class PlejdManager:
 
         self.mesh = PlejdMesh(self)
         self.devices: list[dt.PlejdDevice | dt.PlejdScene] = []
+        self.hardware: dict[str, dt.PlejdHardware] = {}
+        self._blacklist = set()  # TODO: MAKE WORK
         self.cloud = PlejdCloudSite(**self.credentials)
         self.options = {}
+
+    @property
+    def blacklist(self):
+        return self._blacklist
+
+    @blacklist.setter
+    def blacklist(self, blacklist):
+        self._blacklist = set(a.replace(":", "").upper() for a in blacklist)
+
+    def _get_hw(self, addr: str, device: dt.PlejdDevice) -> dt.PlejdHardware:
+        addr = addr.replace(":", "").upper()
+        if addr not in self.hardware:
+            self.hardware[addr] = dt.PlejdHardware(
+                addr,
+                device.powered,
+                blacklisted=addr in self.blacklist,
+            )
+        return self.hardware[addr]
+
+    def connect_callback(self, connected: bool):
+        for d in self.devices:
+            d.set_available(connected)
+
+    async def lightlevel_callback(self, lightlevels: list[LightLevel]):
+        for ll in lightlevels:
+            for d in self.devices:
+                if ll.address == d.address:
+                    await d.parse_lightlevel(ll)
+
+    async def lastdata_callback(self, data: LastData):
+        found = False
+        for d in self.devices:
+            if data.address in [d.address, d.rxAddress, 0]:
+                found = True
+                await d.parse_lastdata(data)
+
+        if not found:
+            rec_log(f"Unknown command received: {data.command}")
+            rec_log(f"    {data.hex}")
 
     async def init(self, sitedata=None):
         await self.cloud.load_site_details(sitedata)
 
         self.mesh.set_key(self.cloud.cryptokey)
-
-        self.mesh.subscribe_connect(self._update_connected)
-        self.mesh.subscribe_state(self._update_device)
 
         LOGGER = logging.getLogger("pyplejd.device_list")
 
@@ -63,7 +101,12 @@ class PlejdManager:
             dev = cls(**device, mesh=self.mesh)
             LOGGER.debug(dev)
             self.devices.append(dev)
-            self.mesh.expect_device(dev.BLEaddress, dev.powered)
+
+            hw = self._get_hw(dev.BLEaddress, dev)
+            hw.devices.add(dev)
+            dev.hw = hw
+
+            self.mesh.expect_device(hw)
 
         LOGGER.debug("Input Devices:")
         for device in self.cloud.inputs:
@@ -71,7 +114,12 @@ class PlejdManager:
             dev = cls(**device, mesh=self.mesh)
             LOGGER.debug(dev)
             self.devices.append(dev)
-            self.mesh.expect_device(dev.BLEaddress, dev.powered)
+
+            hw = self._get_hw(dev.BLEaddress, dev)
+            hw.devices.add(dev)
+            dev.hw = hw
+
+            self.mesh.expect_device(hw)
 
         LOGGER.debug("Scenes:")
         for scene in self.cloud.scenes:
@@ -97,15 +145,6 @@ class PlejdManager:
     async def get_raw_sitedata(self):
         return await self.cloud.get_raw_details()
 
-    def _update_connected(self, state):
-        for d in self.devices:
-            d.update_state(available=state["connected"])
-
-    def _update_device(self, state):
-        for d in self.devices:
-            if d.match_state(state):
-                d.update_state(**state)
-
     @property
     def ping_interval(self):
         return timedelta(minutes=10)
@@ -123,3 +162,14 @@ class PlejdManager:
 
     async def disconnect(self):
         await self.mesh.disconnect()
+
+    async def set_blacklist(self, blacklist):
+        self.blacklist = blacklist
+        reconnect = False
+        for hw in self.hardware.values():
+            hw.blacklisted = hw.BLEaddress in self.blacklist
+            if hw.blacklisted and hw.is_gateway:
+                reconnect = True
+        if reconnect:
+            await self.mesh.disconnect()
+        await self.ping()

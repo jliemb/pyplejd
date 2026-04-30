@@ -1,21 +1,27 @@
 from __future__ import annotations
 from enum import IntFlag, StrEnum
 from ..cloud import site_details as sd
+from ..ble.lastdata import LastData
+from ..ble.lightlevel import LightLevel
 
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..ble import PlejdMesh
+    from .plejd_hardware import PlejdHardware
 
 
 class PlejdTraits(IntFlag):
-    POWER = 0x8
-    TEMP = 0x4
-    DIM = 0x2
-    GROUP = 0x1
+    POWER = 0x1  # Powerable
+    DIM = 0x2  # Dimmable
+    TEMP = 0x4  # WhiteTunable
+    GROUP = 0x8  # Groupable
 
-    COVER = 0x10
-    TILT = 0x40
+    COVER = 0x10  # Coverable
+    TILT = 0x40  # CoverTiltable
+
+    CLIMATE = 0x20  # ClimateControllable
+    CLIMATE_PWM = 0x80
 
 
 class PlejdDeviceType(StrEnum):
@@ -24,6 +30,8 @@ class PlejdDeviceType(StrEnum):
     BUTTON = "SENSOR"
     MOTION = "MOTION"
     COVER = "COVERABLE"
+    CLIMATE = "CLIMATE"
+    PWM = "PWM"
     SCENE = "SCENE"
     UNKNOWN = "UNKNOWN"
 
@@ -38,10 +46,13 @@ class PlejdDevice:
         settings: sd.PlejdDeviceOutputSetting | sd.PlejdDeviceInputSetting,
         room: sd.Room,
         mesh: PlejdMesh,
+        rxAddress: int,
         *_,
+        first_device: sd.Device = None,
         **__,
     ):
         self.address = address
+        self.rxAddress = rxAddress
         self.deviceAddress = deviceAddress
         self.plejdDevice = plejdDevice
         self.settings = settings
@@ -55,14 +66,24 @@ class PlejdDevice:
 
         self.outputType = PlejdDeviceType.UNKNOWN
         self.identifier = None
-        self.device_identifier = (plejdDevice.deviceId, device.objectId)
+        self.is_primary = first_device
+        self.device_identifier = f"{plejdDevice.deviceId}:{device.objectId}"
+        self.parent_identifier = (
+            f"{plejdDevice.deviceId}:{first_device.objectId}"
+            if first_device
+            else self.device_identifier
+        )
         self.capabilities = PlejdTraits(self.deviceData.traits)
+        self.ble_mac = ":".join(
+            device.deviceId[i : i + 2] for i in range(0, len(device.deviceId), 2)
+        )
+        self.hw: PlejdHardware = None
 
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.BLEaddress} ({self.address}) {self.name} [{self.hardware}] {self.outputType}-{self.capabilities!r}>"
 
     def match_state(self, state):
-        if state.get("address") == self.address:
+        if state.get("address") in [self.address, self.rxAddress]:
             return True
         return False
 
@@ -75,14 +96,16 @@ class PlejdDevice:
 
         return remover
 
-    def parse_state(self, update, state):
-        return state
+    async def parse_lightlevel(self, data: LightLevel):
+        pass
 
-    def update_state(self, **state):
-        self._state.update(state)
-        state = self.parse_state(state, self._state)
+    async def parse_lastdata(self, data: LastData):
+        pass
+
+    def set_available(self, available=False):
+        self._state["available"] = available
         for listener in self._listeners:
-            listener(state)
+            listener(self._state)
 
     @property
     def BLEaddress(self):
@@ -90,7 +113,12 @@ class PlejdDevice:
 
     @property
     def powered(self):
-        return PlejdTraits.POWER in self.capabilities
+        return (
+            PlejdTraits.POWER in self.capabilities
+            or PlejdTraits.COVER in self.capabilities
+            or PlejdTraits.CLIMATE in self.capabilities
+            or self.hardware.startswith("EXT-01")
+        )
 
     @property
     def name(self):
@@ -105,7 +133,7 @@ class PlejdDevice:
         return self.deviceData.hiddenFromRoomList
 
     @property
-    def hardware(self):
+    def hardware(self) -> str:
         if self.plejdDevice.firmware.notes:
             return self.plejdDevice.firmware.notes.split()[0]
         return f"-UNKNOWN- ({self.plejdDevice.hardwareId})"

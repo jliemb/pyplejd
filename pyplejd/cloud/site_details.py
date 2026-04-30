@@ -1,7 +1,6 @@
-try:
-    from pydantic.v1 import BaseModel
-except ImportError:
-    from pydantic import BaseModel
+from typing import Optional
+
+from pydantic import BaseModel
 from .. import const
 
 
@@ -32,7 +31,7 @@ class User(PlejdObject):
     # emailVerified: bool = True
     # profile: dict = {}
     # _failed_login_count: int = 0
-    sessionToken: str = None
+    sessionToken: Optional[str] = None
 
 
 class Site(PlejdObject):
@@ -80,9 +79,9 @@ class Device(PlejdObject):
     title: str
     traits: int
     hiddenFromRoomList: bool = False
-    roomId: str | None = ""
+    roomId: Optional[str] = ""
     hiddenFromIntegrations: bool = False
-    outputType: str | None = None
+    outputType: Optional[str] = None
 
 
 class Firmware(PlejdObject):  # TODO
@@ -104,7 +103,7 @@ class PlejdDevice(PlejdObject):
     # dirtyClock: bool
     # dirtySettings: bool
     hardwareId: str
-    faceplateId: str | None = "0"
+    faceplateId: Optional[str] = "0"
     firmware: Firmware
     # coordinates: dict = None
     # predefinedLoad: dict = None
@@ -116,7 +115,7 @@ class PlejdDeviceInputSetting(PlejdObject):
     deviceId: str
     siteId: str
     input: int
-    motionSensorData: dict | None
+    motionSensorData: Optional[dict] = None
     buttonType: str = ""
     # dimSpeed: int = 0
     # doubleSidedDirectionButton: bool = False
@@ -150,37 +149,61 @@ class ColorTemperature(BaseModel):
 class CoverableSettings(BaseModel):
     # coverableMovementDirection: str
     # coverableTiltTime: int
-    coverableTiltStart: int | None = None
-    coverableTiltEnd: int | None = None
+    coverableTiltStart: Optional[int] = None
+    coverableTiltEnd: Optional[int] = None
     # coverablePostRunTime: int
     # coverableCalibration: dict
+
+
+class TemperatureLimits(BaseModel):
+    maxFloorTemperature: int
+    minFloorTemperature: int
+    maxRoomTemperature: int
+    minRoomTemperature: int
+    maxUserInputTemperature: int
+    minUserInputTemperature: int
+
+
+class PWMRegulationConfig(BaseModel):
+    interval: int
+    minDuty: int
+    maxDuty: int
+    minDutyUserInput: int
+    maxDutyUserInput: int
+
+
+class ClimateSettings(BaseModel):
+    regulationMode: str  # Floor/Room/PWM ?
+    temperatureLimits: Optional[TemperatureLimits] = None
+    pwmRegulationConfig: Optional[PWMRegulationConfig] = None
 
 
 class PlejdDeviceOutputSetting(PlejdObject):
     deviceId: str
     siteId: str
-    output: int | None = None
+    output: Optional[int] = None
     deviceParseId: str
     # dimMin: int
     # dimMax: int
     # dimStart: int
-    dimCurve: str | None = None
+    dimCurve: Optional[str] = None
     # outputSpeed: float
     # outputStartTime: int
     # curveRectification: bool
     # curveLogarithm: int
     # curveSinusCompensation: int
     # bootState: str
-    predefinedLoad: PredefinedLoad | None = None
-    colorTemperature: ColorTemperature | None = None
-    coverableSettings: CoverableSettings | None = None
+    predefinedLoad: Optional[PredefinedLoad] = None
+    colorTemperature: Optional[ColorTemperature] = None
+    coverableSettings: Optional[CoverableSettings] = None
     # minimumRelayOffTime: int = None
+    climateSettings: Optional[ClimateSettings] = None
 
 
 class MotionSensor(PlejdObject):
     deviceId: str
     siteId: str
-    input: int | None = None
+    input: Optional[int] = None
     deviceParseId: str
     # dirty: bool
     # dirtyRemove: bool
@@ -223,8 +246,8 @@ class SiteDetails(BaseModel):
     # astroEvents: list
     inputSettings: list[PlejdDeviceInputSetting]
     outputSettings: list[PlejdDeviceOutputSetting]
-    motionSensors: list[MotionSensor] | None = None
-    rxAddress: dict[str, dict[str, int]] | None
+    motionSensors: Optional[list[MotionSensor]] = None
+    rxAddress: Optional[dict[str, dict[str, int]]] = None
     # stateTimers: dict
     # sitePermission: SitePermission
     inputAddress: dict[str, dict[str, int]]

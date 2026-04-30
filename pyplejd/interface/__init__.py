@@ -22,6 +22,8 @@ def outputDeviceClass(device: PlejdEntityData) -> Type[dt.PlejdDevice]:
         return dt.PlejdCover
 
     traits = dt.PlejdTraits(device["device"].traits)
+    if dt.PlejdTraits.CLIMATE in traits:
+        return dt.PlejdThermostat
     if dt.PlejdTraits.COVER in traits:
         return dt.PlejdCover
     if dt.PlejdTraits.POWER in traits:
@@ -36,7 +38,6 @@ def inputDeviceClass(device: PlejdEntityData) -> Type[dt.PlejdDevice]:
     if device["motion"]:
         return dt.PlejdMotionSensor
     return dt.PlejdButton
-    return PlejdDevice
 
 
 def sceneDeviceClass(device: PlejdSceneData) -> Type[dt.PlejdDevice]:
