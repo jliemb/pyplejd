@@ -135,6 +135,10 @@ class PlejdManager:
         await close_stale_connections(device)
 
     @property
+    def data_from_api(self) -> bool:
+        return self.cloud.data_from_api
+
+    @property
     def connected(self):
         return self.mesh is not None and self.mesh.connected
 

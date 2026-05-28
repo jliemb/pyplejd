@@ -68,6 +68,7 @@ class PlejdCloudSite:
         self.siteId = siteId
         self.details: sd.SiteDetails = None
         self._details_raw: str | None = None
+        self.data_from_api: bool = False
 
     @staticmethod
     async def verify_credentials(username, password) -> bool:
@@ -112,11 +113,13 @@ class PlejdCloudSite:
     async def load_site_details(self, backup=None) -> None:
         try:
             await self.get_details()
+            self.data_from_api = True
         except (AuthenticationError, ConnectionError) as err:
             if backup:
                 _LOGGER.debug("Loading site data failed. Reverting to back-up.")
                 self._details_raw = backup
                 self.details = sd.SiteDetails(**backup)
+                self.data_from_api = False
             else:
                 raise err
 
