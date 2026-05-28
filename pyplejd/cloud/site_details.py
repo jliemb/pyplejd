@@ -76,7 +76,7 @@ class Scene(PlejdObject):
 class Device(PlejdObject):
     deviceId: str
     siteId: str
-    title: str
+    title: Optional[str] = None
     traits: int
     hiddenFromRoomList: bool = False
     roomId: Optional[str] = ""
