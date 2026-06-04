@@ -32,14 +32,11 @@ class MeshDevice:
 
     def see(self, rssi, bleDevice: BLEDevice) -> bool:
         # Returns true if first seen
-        if (first_seen := self.rssi) is None:
-            self.bleDevice = bleDevice
-            self.rssi = rssi
-
+        first_seen = self.rssi is None
+        self.bleDevice = bleDevice
         self.last_seen = datetime.now()
-        self.rssi = max(self.rssi, rssi)
-
-        return first_seen
+        self.rssi = rssi if first_seen else max(self.rssi, rssi)
+        return not first_seen
 
     def update():
         pass
@@ -192,10 +189,12 @@ class PlejdMesh:
         retval = False
         async with self._ble_lock:
             if not await self.connect():
-                retval = False
+                return False
             if await self._ping(self._client):
                 await self.poll()
                 retval = True
+            else:
+                await self.disconnect()
         if retval:
             await self.poll_buttons()
         return retval
@@ -223,6 +222,8 @@ class PlejdMesh:
         await self.write(payloads)
 
     async def write(self, *payloads: list[str]):
+        if self._gateway_node is None:
+            return False
         pl = [
             encrypt_decrypt(
                 self._crypto_key,
