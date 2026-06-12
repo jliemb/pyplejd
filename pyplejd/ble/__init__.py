@@ -136,13 +136,23 @@ class PlejdMesh:
                     await client.disconnect()
                     continue
 
-                # Request wider connection interval so the Plejd device gets
-                # enough radio timeslots for mesh operation. ESPHome proxy
-                # defaults to 7.5-15ms which starves the Plejd mesh stack.
+                # Widen the BLE connection interval to give the Plejd device
+                # enough radio time for mesh operation.
+                #
+                # Plejd mesh shares the Nordic nRF radio with BLE via the
+                # SoftDevice timeslot API. The mesh stack only gets radio
+                # timeslots between BLE connection events, so a tight
+                # connection interval (e.g. 7.5-15ms as used by ESPHome BLE
+                # proxy) leaves almost no time for mesh broadcasts, causing
+                # commands to never propagate beyond the connected gateway.
+                #
                 # Plejd firmware requests 20-40ms (16-32 units of 1.25ms).
+                # BleakClientWithServiceCache.set_connection_params() sends a
+                # protobuf message via aioesphomeapi that calls
+                # esp_ble_gap_update_conn_params() on the ESP32.
                 try:
                     await client.set_connection_params(
-                        min_interval=16,  # 20ms
+                        min_interval=16,  # 20ms (units: 1.25ms)
                         max_interval=32,  # 40ms
                         latency=0,
                         timeout=600,      # 6000ms supervision timeout
