@@ -38,7 +38,7 @@ class PlejdLight(PlejdOutput):
                 | LastData.CMD_OUTPUT_STATE_AND_LEVEL
             ):
                 state["state"] = bool(data.payload[0])
-                if state["state"]:
+                if state["state"] and len(data.payload) >= 3:
                     state["dim"] = data.payload[2]
             case LastData.CMD_OUTPUT_SET:
                 for p in data.minipkgs:
