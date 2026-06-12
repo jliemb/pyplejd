@@ -8,7 +8,7 @@ import time
 
 from bleak import BleakClient, BleakError
 from bleak.backends.device import BLEDevice
-from bleak_retry_connector import establish_connection
+from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
 from .crypto import auth_response, encrypt_decrypt
 from . import ble_characteristics as gatt
@@ -125,7 +125,7 @@ class PlejdMesh:
             try:
                 _CONNECTION_LOG.debug("Attempting to connect to %s", node)
                 client = await establish_connection(
-                    BleakClient,
+                    BleakClientWithServiceCache,
                     node.bleDevice,
                     "plejd",
                     _disconnect,
@@ -135,6 +135,26 @@ class PlejdMesh:
                 if not await self._authenticate(client):
                     await client.disconnect()
                     continue
+
+                # Request wider connection interval so the Plejd device gets
+                # enough radio timeslots for mesh operation. ESPHome proxy
+                # defaults to 7.5-15ms which starves the Plejd mesh stack.
+                # Plejd firmware requests 20-40ms (16-32 units of 1.25ms).
+                try:
+                    await client.set_connection_params(
+                        min_interval=16,  # 20ms
+                        max_interval=32,  # 40ms
+                        latency=0,
+                        timeout=600,      # 6000ms supervision timeout
+                    )
+                    _CONNECTION_LOG.debug(
+                        "Set connection params to 20-40ms for mesh timeslots"
+                    )
+                except Exception as e:
+                    _CONNECTION_LOG.warning(
+                        "Could not set connection params (non-fatal): %s", e
+                    )
+
                 self._gateway_node = node
                 node.is_gateway = True
                 self._gateway_node.update()
